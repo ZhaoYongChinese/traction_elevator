@@ -1,0 +1,141 @@
+# ====== 全局配置 ======
+log_level: "INFO"
+ALERT_GAP: 30                 # 报警节流间隔（秒）
+
+# 采样率配置（避免重复定义）
+SAMPLING_RATE: 25600      # 原始数据采样率（如需要）
+PROC_SAMPLING_RATE: 8000      # 处理用采样率（电机故障检测使用）
+
+FAULT_WINDOW: 10              # 轴承故障窗口大小
+PREDICT_WINDOW: 10            # 趋势预测窗口
+FAULT_TRIGGER_COUNT: 3        # 轴承故障触发次数
+
+# 轴承参数
+bearing:
+  n: 9
+  d: 12.7
+  D: 65.0
+  beta: 0
+  rpm: 1450
+
+# 报警码对应描述
+alert_name:
+  "9001": "轴承故障"
+  "9002": "螺栓松动"
+  "9003": "钢丝绳伸长"
+  "9004": "电机故障"
+
+# 部件与报警码映射
+escalator_component_name:
+  "bearing": ["9001"]
+  "bolt": ["9002"]
+  "rope": ["9003"]
+  "motor": ["9004"]
+
+# ====== 故障检测器配置 ======
+fault_detectors:
+  # 轴承故障检测器
+  bearing:
+    type: "bearing"
+    sensors: ["WXT01_p001_9001", "WXT02_p002_9001"]
+    params:
+      window_size: 10
+      expand_ratio: 8
+      trigger_count: 3
+
+  # 螺栓松动检测器
+  bolt_loosen:
+    type: "bolt_loosen"
+    sensors:
+      - name: "WXT01_p001_9002"
+        kurtosis_threshold: 6.5        # 该传感器独立阈值
+        crest_factor_threshold: 5.2
+        combine_logic: "and"
+      - name: "WXT01_p003_9002"
+        # 未指定则使用 params 中的默认值
+    params:
+      window_size: 10          # 历史窗口（若未来需要动态基线）
+      trigger_count: 3
+      kurtosis_threshold: 6.0
+      crest_factor_threshold: 5.0
+      combine_logic: "and"
+
+  # 钢丝绳伸长检测器
+  rope_fault:
+    type: "rope"
+    sensors:
+      - name: "WXT02_p004_9003"          # 轿顶轮振动传感器
+        default_rope_speed: 2.5          # 默认绳速 (m/s)
+        default_load_weight: 800         # 默认载重 (kg)
+        rope_lay_length: 0.12            # 钢丝绳捻距 (m)
+        sheave_diameter: 0.6             # 轿顶轮节圆直径 (m)
+      - name: "WXT03_p005_9004"
+        default_rope_speed: 2.5
+        default_load_weight: 800
+        rope_lay_length: 0.12
+        sheave_diameter: 0.6
+    params:
+      window_size: 10
+      trigger_count: 3
+      # 时域筛查阈值
+      peak_factor_thresh: 5.0
+      impulse_factor_thresh: 6.0
+      margin_factor_thresh: 7.0
+      # 伸长诊断阈值
+      freq_shift_ratio: 0.05             # 固有频率下降超过5%报警
+      # 张力不均诊断阈值
+      rope_pass_amp_ratio: 3.0           # fₚ幅值超过基线3倍报警
+      sideband_check: true
+      # 载重补偿配置
+      load_compensation: true
+      load_levels: [0, 500, 1000]        # 标定的载重级别 (kg)
+
+  # 电机故障检测器（支持传感器独立阈值）
+  motor_fault:
+    type: "motor"
+    sensors:
+      - name: "WXT02_p004_9003"
+        custom_threshold: 3.1        # 该传感器的独立阈值倍数
+      - name: "WXT03_p005_9004"
+        custom_threshold: 2.8
+    params:
+      window_size: 10
+      expand_ratio: 8                # 默认阈值倍数（当 custom_threshold 未设置时使用）
+      trigger_count: 3
+      # 电机诊断专用阈值
+      ratio2_misalign: 0.6
+      ratio3_misalign: 0.3
+      ratio2_eccentric: 0.3
+      ratio3_eccentric: 0.15
+      sample_rate: 8000              # 处理采样率
+  # 轿厢大类故障检测器
+  elevator_car:
+    type: "elevator_car"
+    sensors:
+      - name: "CAR_XT001_VIB"          # 轿架三轴振动传感器
+        location: "car_frame"          # 传感器位置：car_frame, car_roof, etc.
+      - name: "CAR_XT001_MIC"          # 麦克风（可选，用于噪声检测）
+        type: "microphone"
+      - name: "CAR_XT001_IMU"          # 倾角仪/IMU（可选，用于水平度检测）
+        type: "inclinometer"
+    params:
+      # 通用参数
+      window_size: 10
+      trigger_count: 3
+
+      # 轿架振动异常（固有频率下降）阈值
+      freq_shift_ratio: 0.05           # 固有频率下降超过5%报警
+
+      # 平稳度异常（晃动）阈值
+      stability_pf_thresh: 5.0         # X/Y轴峰值因子阈值
+      stability_if_thresh: 6.0         # X/Y轴脉冲因子阈值
+      stability_mf_thresh: 7.0         # X/Y轴裕度因子阈值
+      stability_low_energy_ratio: 3.0  # 低频段(0.5-20Hz)能量与基线比值
+
+      # 摩擦噪声异常阈值
+      noise_band_energy_ratio: 3.0     # 1-5kHz频段能量与基线比值
+      noise_coherence_thresh: 0.6      # 声-振相干性阈值（若可实现）
+
+      # 水平度偏差阈值
+      level_angle_thresh: 0.5          # 倾斜角度阈值（度）
+      level_duration_thresh: 30        # 持续超过阈值时间（秒）

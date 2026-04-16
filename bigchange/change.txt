@@ -1,0 +1,60 @@
+需要在原有输入结构或者硬件层面做出的改动如下：
+
+
+固定螺栓松动：
+发送端要添加的数据：
+{   "kurtosis": kurt_value,  #超量峭度（excess kurtosis）    
+    "crest_factor": cf_value
+}   #固定螺栓松动，可以只要这两个不要Rms和FFT
+
+
+钢丝绳、钢带：
+请确保发送端在 data_packet 中包含以下字段：
+字段            类型	说明
+running_state	str	    必须为 "steady" 时才进行诊断
+peak_factor	    dict	三轴峰值因子 {"Z": val, "X": val, "Y": val}
+impulse_factor	dict	三轴脉冲因子
+margin_factor	dict	三轴裕度因子
+fft_all	        dict	三轴频谱 {"Z": {"fft": array, "index": array}, ...}
+rope_speed	    float	实时绳速 (m/s)，若无可省略
+load_weight	    float	实时载重 (kg)，若无可省略
+硬件层面要求如下：
+三轴传感器安装在轿顶反绳轮（轿顶轮）安装基座，刚性固定在轿顶反绳轮的轴承座/安装梁上（与轮轴直接刚性连接），严禁安装在柔性钣金或装饰件上，优先螺栓固定，其次用高强度结构胶粘接，保证振动无衰减传递。
+三轴传感器的Z轴要垂直上下运行方向，X轴测量水平径向，Y轴测量水平轴向
+编码器 1：装在 曳引电机轴 / 曳引轮轴 → 测曳引轮转速
+编码器 2：装在 轿厢导轨 / 轿底 → 测轿厢实际速度
+钢丝绳探伤仪传感器：机房曳引轮出口处
+
+
+桥箱：
+data_packet = {
+    "sensor_name": "CAR_XT001_VIB",
+    "timestamp": time.time(),
+    "running_state": "steady",
+
+    # 三轴时域特征（必需）
+    "peak_factor": {"X": 4.2, "Y": 3.9, "Z": 3.5},
+    "impulse_factor": {"X": 5.1, "Y": 4.8, "Z": 4.0},
+    "margin_factor": {"X": 6.3, "Y": 5.9, "Z": 5.0},
+
+    # 三轴频谱（必需）
+    "fft_all": {
+        "X": {"fft": array, "index": freq},
+        "Y": {"fft": array, "index": freq},
+        "Z": {"fft": array, "index": freq}
+    },
+
+    # 麦克风数据（可选，用于噪声检测）
+    "audio": {
+        "rms_band_1k_5k": 0.023,        # 预计算的1-5kHz频段RMS
+        # "raw_signal": array,          # 可选，若需相干分析
+        # "sample_rate": 16000
+    },
+
+    # 倾角仪数据（可选，用于水平度检测）
+    "inclinometer": {
+        "pitch": 0.12,                  # 俯仰角（度）
+        "roll": -0.05                   # 翻滚角（度）
+    }
+}
+需要麦克风和倾角传感器
