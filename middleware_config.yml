@@ -43,52 +43,36 @@ fault_detectors:
       expand_ratio: 8
       trigger_count: 3
 
-  # 螺栓松动检测器
+  # 螺栓松动检测器（改为基于RMS判断）
   bolt_loosen:
     type: "bolt_loosen"
     sensors:
       - name: "WXT01_p001_9002"
-        kurtosis_threshold: 6.5        # 该传感器独立阈值
-        crest_factor_threshold: 5.2
-        combine_logic: "and"
+        rms_threshold: 0.35               # 该传感器独立RMS阈值 (g)
+        consecutive_exceed_count: 3       # 连续超限次数阈值
       - name: "WXT01_p003_9002"
         # 未指定则使用 params 中的默认值
     params:
-      window_size: 10          # 历史窗口（若未来需要动态基线）
-      trigger_count: 3
-      kurtosis_threshold: 6.0
-      crest_factor_threshold: 5.0
-      combine_logic: "and"
+      window_size: 10                     # 历史窗口长度（保留，可能用于RMS平滑）
+      trigger_count: 3                    # 报警节流（可替换为 alarm_cooldown）
+      rms_threshold: 0.3                  # 默认RMS报警阈值 (g)
+      consecutive_exceed_count: 5         # 默认连续超限次数
+      alarm_cooldown: 30                  # 报警冷却时间（秒），建议与全局 ALERT_GAP 协调
 
   # 钢丝绳伸长检测器
   rope_fault:
     type: "rope"
     sensors:
-      - name: "WXT02_p004_9003"          # 轿顶轮振动传感器
-        default_rope_speed: 2.5          # 默认绳速 (m/s)
-        default_load_weight: 800         # 默认载重 (kg)
-        rope_lay_length: 0.12            # 钢丝绳捻距 (m)
-        sheave_diameter: 0.6             # 轿顶轮节圆直径 (m)
+      - name: "WXT02_p004_9003"
+        high_rms_threshold: 0.18          # 该传感器独立阈值
+        consecutive_exceed_count: 6
+        alarm_cooldown: 60
       - name: "WXT03_p005_9004"
-        default_rope_speed: 2.5
-        default_load_weight: 800
-        rope_lay_length: 0.12
-        sheave_diameter: 0.6
+        # 使用默认值
     params:
-      window_size: 10
-      trigger_count: 3
-      # 时域筛查阈值
-      peak_factor_thresh: 5.0
-      impulse_factor_thresh: 6.0
-      margin_factor_thresh: 7.0
-      # 伸长诊断阈值
-      freq_shift_ratio: 0.05             # 固有频率下降超过5%报警
-      # 张力不均诊断阈值
-      rope_pass_amp_ratio: 3.0           # fₚ幅值超过基线3倍报警
-      sideband_check: true
-      # 载重补偿配置
-      load_compensation: true
-      load_levels: [0, 500, 1000]        # 标定的载重级别 (kg)
+      high_rms_threshold: 0.15            # 默认高频 RMS 阈值 (g)
+      consecutive_exceed_count: 3         # 默认连续超限次数
+      alarm_cooldown: 30                  # 默认报警冷却时间 (秒)
 
   # 电机故障检测器（支持传感器独立阈值）
   motor_fault:
