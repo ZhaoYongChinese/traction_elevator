@@ -119,7 +119,6 @@ class _SensorState:
                      f"连续次数={trigger_count}, 冷却={cooldown}s")
 
     def _get_fault_level(self, ratio: float) -> int:
-        """根据倍数返回故障级别"""
         if ratio >= self.ratio_wear:
             return 3
         elif ratio >= self.ratio_slip:
@@ -130,7 +129,6 @@ class _SensorState:
             return 0
 
     def _level_to_fault_type(self, level: int) -> str:
-        """级别转为故障类型字符串"""
         return {
             1: 'tension_imbalance',
             2: 'slippage',
@@ -141,7 +139,6 @@ class _SensorState:
         ratio = rms_value / (self.baseline_rms + 1e-10)
         current_level = self._get_fault_level(ratio)
 
-        # 只有当级别与上一帧相同且非零时才累加计数器
         if current_level > 0 and current_level == self.current_fault_level:
             self.exceed_counter += 1
             logger.debug(f"[{self.sensor_name}] RMS倍数 {ratio:.2f} 持续触发级别 {current_level}，"

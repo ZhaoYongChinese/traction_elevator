@@ -1,0 +1,188 @@
+电机故障motor_fault.py
+一级筛查：通过实时 RMS 值与历史窗口最大值比较（超阈值倍数），连续触发后进入二级诊断
+二级精细诊断：利用 FFT 频谱提取基频及倍频幅值比，区分转子不对中和定子偏心。
+数据包示例:
+data_packet = {
+    "rms_value": 0.23,                 # 当前 RMS (g)
+    "fft_all": {
+        "fft": [0.01, 0.05, ..., 0.2], # 幅度谱列表
+        "index": [0.0, 0.5, ..., 4000.0] # 对应频率列表
+    },
+    "timestamp": 1713001234.5
+}
+配置文件示例：
+motor_fault:
+  type: "motor"
+  sensors:
+    - name: "WXT02_p004_9003"
+      custom_threshold: 3.1
+  params:
+    window_size: 10
+    expand_ratio: 8
+    trigger_count: 3
+    ratio2_misalign: 0.6
+    ratio3_misalign: 0.3
+    ratio2_eccentric: 0.3
+    ratio3_eccentric: 0.15
+    sample_rate: 8000
+调用示例：
+from motor_fault import MotorFaultDetector
+
+detector = MotorFaultDetector("motor_fault", config_dict)
+
+轴承故障bearing_fault.py
+一级筛查：当前 RMS 超过历史窗口最大值的一定倍数（默认 8 倍）且连续触发。
+二级诊断：在频谱中检查内圈、外圈、保持架、滚动体特征频率处的信噪比。
+导入示例：
+from bearing_fault import BearingFaultDetector
+
+# config_dict 必须符合下方 YAML 结构
+detector = BearingFaultDetector("bearing", config_dict, global_config)
+数据包示例：
+data_packet = {
+    "rms_value": 0.23,                 # 当前 RMS 值 (g)
+    "fft_all": {                       # 可选，用于二级诊断
+        "fft": [0.01, 0.05, ...],      # 幅度谱列表
+        "index": [0.0, 0.5, ...]       # 对应频率列表
+    },
+    "timestamp": 1713001234.5
+}
+配置文件示例：
+# global_config 部分（可单独传入或与 fault_detectors 合并）
+bearing:
+  n: 9                # 滚动体数量
+  d: 12.7             # 滚动体直径 (mm)
+  D: 65.0             # 节圆直径 (mm)
+  beta: 0             # 接触角 (度)
+  rpm: 1450           # 转速 (转/分)
+
+FAULT_WINDOW: 10      # RMS 历史窗口长度
+FAULT_TRIGGER_COUNT: 3 # 连续触发次数
+
+fault_detectors:
+  bearing:
+    type: "bearing"
+    sensors:
+      - name: "WXT01_p001_9001"
+      - name: "WXT02_p002_9001"
+    params:
+      window_size: 10
+      expand_ratio: 8
+      trigger_count: 3
+      rms_history_file: "bearing_rms_history.json"  # 可选，历史文件保存路径
+
+
+固定螺栓松动bolt_loosen.py
+导入示例：
+from bolt_loosen import BoltLoosenDetector
+
+# config_dict 必须符合下方 YAML 结构
+detector = BoltLoosenDetector("bolt_loosen", config_dict)
+数据包格式：
+data_packet = {
+    "rms_g": 0.42,               # 当前 RMS 值 (g)，必填
+    "timestamp": 1713001234.5    # 可选，Unix 时间戳，用于报警冷却
+}
+配置文件格式
+fault_detectors:
+  bolt_loosen:
+    type: "bolt_loosen"
+    sensors:
+      - name: "WXT01_p001_9002"
+        rms_threshold: 0.35               # 可选，该传感器独立阈值
+        consecutive_exceed_count: 5       # 可选，连续超限次数
+        alarm_cooldown: 30                # 可选，报警冷却时间(秒)
+      - name: "WXT01_p003_9002"
+        # 未指定则使用 params 中的默认值
+    params:
+      window_size: 10                     # 保留，暂未使用
+      rms_threshold: 0.3                  # 默认 RMS 报警阈值 (g)
+      consecutive_exceed_count: 5         # 默认连续超限次数
+      alarm_cooldown: 30                  # 默认报警冷却时间(秒)
+
+钢丝绳、钢带故障rope_fault.py
+基于高频 RMS（`rms_high`）连续超阈值判断钢丝绳磨损或断丝。
+调用示例：
+from rope_fault import RopeFaultDetector
+
+detector = RopeFaultDetector("rope_fault", config_dict)
+导入示例：
+from rope_fault import RopeFaultDetector
+
+# config_dict 必须符合下方 YAML 结构
+detector = RopeFaultDetector("rope_fault", config_dict)
+数据包格式：
+data_packet = {
+    "rms": 0.48,               # 或使用 "rms_g"，当前 RMS 值 (g)
+    "timestamp": 1713001234.5  # 可选，Unix 时间戳，用于报警冷却
+}
+
+配置文件示例：
+fault_detectors:
+  rope_fault:
+    type: "rope"
+    sensors:
+      - name: "WXT02_p004_9003"
+        baseline_rms: 0.12          # 【必填】健康状态下标定的 RMS 基线 (g)
+        ratio_tension: 4.0          # 可选，张力不均倍数阈值
+        ratio_slip: 6.0             # 可选，打滑倍数阈值
+        ratio_wear: 8.0             # 可选，磨损/断裂倍数阈值
+        trigger_count: 4            # 可选，连续超限次数
+        alarm_cooldown: 60          # 可选，报警冷却时间(秒)
+      - name: "WXT03_p005_9004"
+        baseline_rms: 0.15
+    params:
+      # 全局默认值（传感器未配置时使用）
+      ratio_tension: 4.0
+      ratio_slip: 6.0
+      ratio_wear: 8.0
+      trigger_count: 3
+      alarm_cooldown: 30
+
+轿厢elevator_car.py
+调用示例：
+from elevator_car import ElevatorCarFaultDetector
+
+# config_dict 必须符合下方 YAML 结构
+detector = ElevatorCarFaultDetector("elevator_car", config_dict)
+数据包格式
+data_packet = {
+    "peak_factor": {      # 峰值因子，必须包含 'X','Y','Z'
+        "X": 6.2,
+        "Y": 5.8,
+        "Z": 4.1
+    },
+    "impulse_factor": {   # 脉冲因子，必须包含 'X','Y','Z'
+        "X": 7.5,
+        "Y": 6.9,
+        "Z": 5.0
+    },
+    "margin_factor": {    # 裕度因子，必须包含 'X','Y','Z'
+        "X": 8.3,
+        "Y": 7.8,
+        "Z": 6.2
+    },
+    "running_state": "steady",  # 可选，仅当为 "steady" 时处理
+    "timestamp": 1713001234.5   # 可选，Unix 时间戳
+}
+配置文件格式
+fault_detectors:
+  elevator_car:
+    type: "elevator_car"
+    sensors:
+      - name: "CAR_XT001_VIB"
+        # 可为该传感器单独调整各轴阈值（可选）
+        pf_thresh_X: 5.5
+        pf_thresh_Y: 5.5
+        pf_thresh_Z: 6.0
+        trigger_count: 4
+        alarm_cooldown: 60
+      - name: "CAR_XT002_VIB"
+        # 使用默认值
+    params:
+      stability_pf_thresh: 5.0      # 默认 X/Y/Z 轴峰值因子阈值
+      stability_if_thresh: 6.0      # 默认脉冲因子阈值
+      stability_mf_thresh: 7.0      # 默认裕度因子阈值
+      trigger_count: 3              # 连续超限次数
+      alarm_cooldown: 30            # 报警冷却时间(秒)
+      

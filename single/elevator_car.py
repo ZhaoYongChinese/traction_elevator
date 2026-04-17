@@ -23,9 +23,6 @@ class ElevatorCarFaultDetector:
         self.default_if_thresh = self.default_params.get('stability_if_thresh', 6.0)
         self.default_mf_thresh = self.default_params.get('stability_mf_thresh', 7.0)
 
-        # 可选：支持按轴覆盖（如 X_pf_thresh），若不配置则使用统一默认值
-        # 这里为了简洁，使用统一默认值，传感器独立配置可覆盖
-
         self.default_trigger_count = self.default_params.get('trigger_count', 3)
         self.default_alarm_cooldown = self.default_params.get('alarm_cooldown', 30)
 
@@ -148,7 +145,6 @@ class _SensorState:
         1级（平稳度异常）：至少2个方向满足2倍条件
         2级（轿架振动）：至少2个方向满足4倍条件
         """
-        # 先检查高级别
         if self._count_abnormal_directions(pf, imp, mar, 4.0) >= 2:
             return 2
         elif self._count_abnormal_directions(pf, imp, mar, 2.0) >= 2:
@@ -159,7 +155,6 @@ class _SensorState:
     def update(self, pf: Dict, imp: Dict, mar: Dict, timestamp: float) -> Tuple[bool, Optional[Dict]]:
         current_level = self._get_fault_level(pf, imp, mar)
 
-        # 连续触发逻辑：只有级别相同且非零才累加计数器
         if current_level > 0 and current_level == self.current_fault_level:
             self.exceed_counter += 1
             logger.debug(f"[{self.sensor_name}] 故障级别 {current_level} 持续，"

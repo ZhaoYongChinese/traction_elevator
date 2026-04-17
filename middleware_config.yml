@@ -64,15 +64,20 @@ fault_detectors:
     type: "rope"
     sensors:
       - name: "WXT02_p004_9003"
-        high_rms_threshold: 0.18          # 该传感器独立阈值
-        consecutive_exceed_count: 6
-        alarm_cooldown: 60
+        baseline_rms: 0.12              # 健康基线 RMS（g），必填
+        ratio_tension: 4.0              # 张力不均
+        ratio_slip: 6.0                 # 打滑
+        ratio_wear: 8.0                 # 磨损
+        trigger_count: 3
       - name: "WXT03_p005_9004"
-        # 使用默认值
+        baseline_rms: 0.15
+        # 使用默认倍数
     params:
-      high_rms_threshold: 0.15            # 默认高频 RMS 阈值 (g)
-      consecutive_exceed_count: 3         # 默认连续超限次数
-      alarm_cooldown: 30                  # 默认报警冷却时间 (秒)
+      ratio_tension: 4.0
+      ratio_slip: 6.0
+      ratio_wear: 8.0
+      trigger_count: 3
+      alarm_cooldown: 30
 
   # 电机故障检测器（支持传感器独立阈值）
   motor_fault:
@@ -97,15 +102,16 @@ fault_detectors:
     type: "elevator_car"
     sensors:
       - name: "CAR_XT001_VIB"
-        # 可独立覆盖默认阈值
-        stability_pf_thresh: 5.5
+        # 可为该传感器单独调整各轴阈值（可选）
+        pf_thresh_X: 5.5
+        pf_thresh_Y: 5.5
+        pf_thresh_Z: 6.0
         trigger_count: 4
       - name: "CAR_XT002_VIB"
         # 使用默认值
     params:
-      # 平稳度异常（运行晃动）阈值
-      stability_pf_thresh: 5.0         # X/Y轴峰值因子阈值
-      stability_if_thresh: 6.0         # X/Y轴脉冲因子阈值
-      stability_mf_thresh: 7.0         # X/Y轴裕度因子阈值
-      trigger_count: 3                 # 连续超阈值次数
-      alarm_cooldown: 30               # 报警冷却时间（秒））
+      stability_pf_thresh: 5.0      # 默认X/Y/Z轴峰值因子阈值
+      stability_if_thresh: 6.0      # 默认脉冲因子阈值
+      stability_mf_thresh: 7.0      # 默认裕度因子阈值
+      trigger_count: 3
+      alarm_cooldown: 30
