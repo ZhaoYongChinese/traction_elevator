@@ -96,30 +96,16 @@ fault_detectors:
   elevator_car:
     type: "elevator_car"
     sensors:
-      - name: "CAR_XT001_VIB"          # 轿架三轴振动传感器
-        location: "car_frame"          # 传感器位置：car_frame, car_roof, etc.
-      - name: "CAR_XT001_MIC"          # 麦克风（可选，用于噪声检测）
-        type: "microphone"
-      - name: "CAR_XT001_IMU"          # 倾角仪/IMU（可选，用于水平度检测）
-        type: "inclinometer"
+      - name: "CAR_XT001_VIB"
+        # 可独立覆盖默认阈值
+        stability_pf_thresh: 5.5
+        trigger_count: 4
+      - name: "CAR_XT002_VIB"
+        # 使用默认值
     params:
-      # 通用参数
-      window_size: 10
-      trigger_count: 3
-
-      # 轿架振动异常（固有频率下降）阈值
-      freq_shift_ratio: 0.05           # 固有频率下降超过5%报警
-
-      # 平稳度异常（晃动）阈值
+      # 平稳度异常（运行晃动）阈值
       stability_pf_thresh: 5.0         # X/Y轴峰值因子阈值
       stability_if_thresh: 6.0         # X/Y轴脉冲因子阈值
       stability_mf_thresh: 7.0         # X/Y轴裕度因子阈值
-      stability_low_energy_ratio: 3.0  # 低频段(0.5-20Hz)能量与基线比值
-
-      # 摩擦噪声异常阈值
-      noise_band_energy_ratio: 3.0     # 1-5kHz频段能量与基线比值
-      noise_coherence_thresh: 0.6      # 声-振相干性阈值（若可实现）
-
-      # 水平度偏差阈值
-      level_angle_thresh: 0.5          # 倾斜角度阈值（度）
-      level_duration_thresh: 30        # 持续超过阈值时间（秒）
+      trigger_count: 3                 # 连续超阈值次数
+      alarm_cooldown: 30               # 报警冷却时间（秒））
